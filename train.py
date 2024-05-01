@@ -1,7 +1,6 @@
 import pandas as pd 
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
 from sklearn.model_selection import cross_val_predict
 from sklearn.metrics import confusion_matrix
@@ -12,43 +11,46 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.impute import SimpleImputer
 
+# Read data
 df = pd.read_csv("data_processed.csv")
 
-#### Get features ready to model! 
+# Preparing target and features
 y = df.pop("cons_general").to_numpy()
-y[y< 4] = 0
-y[y>= 4] = 1
+y[y < 4] = 0  # Label as 0 if less than 4
+y[y >= 4] = 1  # Label as 1 if 4 or higher
 
 X = df.to_numpy()
-X = preprocessing.scale(X) # Is standard
-# Impute NaNs
+X = preprocessing.scale(X)  # Standardize features
 
+# Impute missing values
 imp = SimpleImputer(missing_values=np.nan, strategy='mean')
 imp.fit(X)
 X = imp.transform(X)
 
-
-# Linear model
-clf = SVC()
+# Random Forest model
+clf = RandomForestClassifier(n_estimators=100, random_state=42)  # Random Forest with 100 trees
 yhat = cross_val_predict(clf, X, y, cv=5)
 
-acc = np.mean(yhat==y)
+# Calculate metrics
+acc = np.mean(yhat == y)
 tn, fp, fn, tp = confusion_matrix(y, yhat).ravel()
-specificity = tn / (tn+fp)
+specificity = tn / (tn + fp)
 sensitivity = tp / (tp + fn)
 
-# Now print to file
+# Save metrics to JSON file
 with open("metrics.json", 'w') as outfile:
-        json.dump({ "accuracy": acc, "specificity": specificity, "sensitivity":sensitivity}, outfile)
+    json.dump({
+        "accuracy": acc,
+        "specificity": specificity,
+        "sensitivity": sensitivity
+    }, outfile)
 
-# Let's visualize within several slices of the dataset
+# Visualize accuracy by region
 score = yhat == y
 score_int = [int(s) for s in score]
 df['pred_accuracy'] = score_int
 
-# Bar plot by region
-
 sns.set_color_codes("dark")
-ax = sns.barplot(x="region", y="pred_accuracy", data=df, palette = "Greens_d")
-ax.set(xlabel="Region", ylabel = "Model accuracy")
-plt.savefig("by_region.png",dpi=80)
+ax = sns.barplot(x="region", y="pred_accuracy", data=df, palette="Greens_d")
+ax.set(xlabel="Region", ylabel="Model accuracy")
+plt.savefig("by_region.png", dpi=80)
